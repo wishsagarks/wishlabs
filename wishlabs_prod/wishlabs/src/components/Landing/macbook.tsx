@@ -8,7 +8,7 @@ export  default function MacbookScrollDemo() {
       <MacbookScroll
         title={
           <span>
-           Test <br />Test
+           Innovating AI, one idea at a time.
           </span>
         }
       />
