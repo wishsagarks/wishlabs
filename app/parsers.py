@@ -6,12 +6,8 @@ import docx
 import re
 import spacy
 
-# Load spaCy model with graceful fallback for tests
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    # In CI environments the large model may not be present
-    nlp = spacy.blank("en")
+# Load spaCy model at module import for speed
+nlp = spacy.load("en_core_web_sm")
 
 # Simple skill list (should use a richer taxonomy in prod)
 COMMON_SKILLS = [
