@@ -61,13 +61,14 @@ def traditional_ats_score(metadata, level):
     exp = metadata.get("experience_years")
     if exp is None:
         exp = 0  # Safest default for ATS
+
+    exp_match = False  # <-- Always initialize!
+
     if level == "entry" and exp >= 0:
         exp_match = True
     elif level == "mid" and exp >= 3:
-        exp=4
         exp_match = True
     elif level == "senior" and exp >= 7:
-        
         exp_match = True
     # (Can add bonus points here if wanted)
 

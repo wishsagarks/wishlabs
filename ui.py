@@ -95,6 +95,11 @@ if submit_btn:
     with st.spinner("Analyzing your resume, please wait..."):
         # 1. Parse resume for metadata
         metadata = extract_metadata(resume_file.getvalue(), resume_file.name)
+        if not metadata or not isinstance(metadata, dict):
+            st.error("Failed to extract information from resume. Please check your file.")
+            st.stop()
+        ats_result = traditional_ats_score(metadata, level)
+
 
         # 2. Rule-based ATS score
         ats_result = traditional_ats_score(metadata, level)
