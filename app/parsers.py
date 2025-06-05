@@ -16,6 +16,20 @@ COMMON_SKILLS = [
     "git", "linux", "html", "css", "nlp", "machine learning", "data analysis"
 ]
 
+
+def format_gemini_feedback(feedback_text):
+    """Convert markdown-like AI feedback to clean, pretty HTML for Streamlit."""
+    # Replace double stars for bold (for section headers or strong phrases)
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', feedback_text)
+    # Remove single star bullets, use Streamlit's default bullets or dash
+    text = re.sub(r'^\s*[\*•]\s?', '• ', text, flags=re.MULTILINE)
+    # Optionally, make headers larger
+    text = re.sub(r'<b>(Strengths|Weaknesses and Improvement Suggestions|Specific Examples of Improvement):</b>',
+                  r'<b><span style="font-size:1.1em">\1:</span></b>', text)
+    # Remove stray backticks (if any)
+    text = text.replace('`', '')
+    return text
+
 def extract_text_from_pdf(pdf_bytes):
     text = ""
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:

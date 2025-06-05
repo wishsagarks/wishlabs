@@ -1,10 +1,15 @@
 import streamlit as st
-import requests
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 import datetime
 import os
 
-API_URL = "http://localhost:8000/upload_resume/"
+from app.parsers import extract_metadata, COMMON_SKILLS , format_gemini_feedback
+from app.scoring import traditional_ats_score, jd_based_score
+from app.ai_scoring import ai_ats_score
+from app.comparator import compare_scores
+
+FONT_PATH = os.path.join("app", "fonts", "DejaVuSans.ttf")
 
 SECTION_TIPS = {
     "name": "Your full name. Recruiters and ATSs use this to identify your application.",
@@ -12,19 +17,23 @@ SECTION_TIPS = {
     "phone": "Phone number for interview or offer calls.",
     "skills": "List of your technical and soft skills. These help both ATS and recruiters match you to jobs.",
     "education": "Your degrees, institutions, years attended, and relevant coursework.",
-    "experience": "Work experience with company, title, and accomplishments.",
+    "experience_years": "How many years of relevant work experience you have.",
     "projects": "Notable projects that showcase your skills and practical experience.",
-    "summary": "A concise professional summary or objective that tells your story up front.",
-    "achievements": "Major awards, recognition, patents, publications, or leadership roles.",
-    "format": "No tables/columns/graphics. ATS-friendly formatting."
+    "summary": "A concise professional summary or objective that tells your story up front."
 }
 
-FONT_PATH = os.path.join(os.path.dirname(__file__), "fonts", "DejaVuSans.ttf")
+def clean_text(text):
+    if not isinstance(text, str):
+        return str(text)
+    return ''.join(c for c in text if c.isprintable() or c in '\n\t')
 
 class PDF(FPDF):
     def header(self):
         self.set_font("DejaVu", "B", 16)
-        self.cell(0, 10, "ATS Resume Analysis Report", ln=True, align='C')
+        self.cell(
+            0, 10, clean_text("ATS Resume Analysis Report"),
+            align='C', new_x=XPos.LMARGIN, new_y=YPos.NEXT
+        )
         self.ln(4)
 
 def generate_pdf_report(resume_name, level, ats_score, jd_score, ai_score, sections, warnings, feedback):
@@ -33,52 +42,36 @@ def generate_pdf_report(resume_name, level, ats_score, jd_score, ai_score, secti
     pdf.add_font("DejaVu", "B", FONT_PATH)
     pdf.add_page()
     pdf.set_font("DejaVu", "", 12)
-
-    pdf.cell(0, 10, f"Date: {datetime.date.today().isoformat()}", ln=True)
-    pdf.cell(0, 10, f"Resume: {resume_name}", ln=True)
-    pdf.cell(0, 10, f"Level: {level.capitalize()}", ln=True)
+    pdf.cell(0, 10, clean_text(f"Date: {datetime.date.today().isoformat()}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, clean_text(f"Resume: {resume_name}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, clean_text(f"Level: {level.capitalize()}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(6)
-
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "Scores", ln=True)
+    pdf.cell(0, 10, clean_text("Scores"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("DejaVu", "", 12)
-    pdf.cell(0, 10, f"ATS Score: {ats_score}/100", ln=True)
-    pdf.cell(0, 10, f"JD Match Score: {jd_score if jd_score is not None else '—'}/100", ln=True)
-    pdf.cell(0, 10, f"Gemini AI Score: {ai_score}/100", ln=True)
+    pdf.cell(0, 10, clean_text(f"ATS Score: {ats_score}/100"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, clean_text(f"JD Match Score: {jd_score if jd_score is not None else '—'}/100"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 10, clean_text(f"Gemini AI Score: {ai_score}/100"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(6)
-
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "Section Breakdown", ln=True)
+    pdf.cell(0, 10, clean_text("Section Breakdown"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("DejaVu", "", 12)
     for s in sections:
         label = s['section'].replace("_", " ").capitalize()
-        quality = f" ({int(s['quality'] * 100)}% quality)" if 'quality' in s else ""
-        pdf.cell(0, 10, f"{label} (Weight: {s['weight']}%){quality}: {'✔️' if s['present'] else '✗'}", ln=True)
-        # Print matched_skills if available
-        if s.get("matched_skills"):
-            pdf.set_font("DejaVu", "", 10)
-            pdf.cell(0, 10, f"  Matched Skills: {', '.join(s['matched_skills'])}", ln=True)
-            pdf.set_font("DejaVu", "", 12)
-        if s.get("warnings"):
-            for warn in s["warnings"]:
-                pdf.set_text_color(255, 0, 0)
-                pdf.cell(0, 10, f"  ⚠️ {warn}", ln=True)
-                pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 10, clean_text(f"{label} (Importance: {s['weight']}%): {'✔️' if s['present'] else '✗'}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.ln(4)
     if warnings:
         pdf.set_text_color(255, 0, 0)
         for warning in warnings:
-            pdf.multi_cell(0, 10, f"⚠️ {warning}")
+            pdf.multi_cell(0, 10, clean_text(f"⚠️ {warning}"))
         pdf.set_text_color(0, 0, 0)
     pdf.ln(6)
-
     pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(0, 10, "Gemini AI Feedback", ln=True)
+    pdf.cell(0, 10, clean_text("Gemini AI Feedback"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("DejaVu", "", 11)
-    pdf.multi_cell(0, 8, feedback)
+    pdf.multi_cell(0, 8, clean_text(feedback))
     pdf.ln(2)
-
-    return bytes(pdf.output(dest='S'))
+    return bytes(pdf.output(name=None))
 
 st.set_page_config(
     page_title="AI-Powered ATS Resume Checker",
@@ -100,23 +93,28 @@ if submit_btn:
         st.stop()
 
     with st.spinner("Analyzing your resume, please wait..."):
-        files = {"resume": (resume_file.name, resume_file.getvalue(), resume_file.type)}
-        data = {"level": level, "jd": jd}
-        try:
-            resp = requests.post(API_URL, files=files, data=data, timeout=120)
-            result = resp.json()
-        except Exception as e:
-            st.error(f"Error connecting to backend: {e}")
-            st.stop()
+        # 1. Parse resume for metadata
+        metadata = extract_metadata(resume_file.getvalue(), resume_file.name)
 
-    ats_score = result["ats_score"]["score"]
-    ats_details = result["ats_score"]["details"]
-    ai_score = result["ai_score"]
-    jd_score = result["jd_score"]["score"] if result.get("jd_score") else None
-    feedback = result["ai_feedback"]
-    comp = result.get("comparison", {})
+        # 2. Rule-based ATS score
+        ats_result = traditional_ats_score(metadata, level)
+        ats_score = ats_result["score"]
+        ats_details = ats_result["details"]
 
-    # Score panels
+        # 3. JD-based scoring (optional, if JD provided)
+        jd_score_result = jd_based_score(metadata, jd, level) if jd else None
+        jd_score = jd_score_result["score"] if jd_score_result else None
+
+        # 4. Gemini AI scoring (text + JD)
+        ai_score, ai_feedback = ai_ats_score(resume_file.getvalue(), resume_file.name, jd, level)
+
+        sections = ats_details.get("sections", [])
+        warnings = ats_details.get("warnings", [])
+        skills_bonus = ats_details.get("skills_bonus", 0)
+
+        # 5. Real-time comparison
+        comp = compare_scores(ats_result, ai_score, jd_score_result)
+
     st.subheader("Results Overview")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -126,16 +124,15 @@ if submit_btn:
     with c3:
         st.metric("Gemini AI Score", f"{ai_score}/100")
 
-    # --- PDF EXPORT BUTTON ---
     pdf_bytes = generate_pdf_report(
         resume_name=resume_file.name,
         level=level,
         ats_score=ats_score,
         jd_score=jd_score,
         ai_score=ai_score,
-        sections=ats_details.get("sections", []),
-        warnings=ats_details.get("warnings", []),
-        feedback=feedback,
+        sections=sections,
+        warnings=warnings,
+        feedback=ai_feedback,
     )
     st.download_button(
         label="⬇️ Download Full ATS Report (PDF)",
@@ -144,13 +141,8 @@ if submit_btn:
         mime="application/pdf"
     )
 
-    # --- Section Breakdown with Tooltips ---
     st.markdown("---")
     st.subheader(f"Section Breakdown ({level.capitalize()} Level)")
-
-    sections = ats_details.get("sections", [])
-    warnings = ats_details.get("warnings", [])
-    skills_bonus = ats_details.get("skills_bonus", 0)
 
     for s in sections:
         key = s["section"]
@@ -200,11 +192,9 @@ if submit_btn:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Gemini AI Feedback
     st.subheader("Gemini AI Feedback & Suggestions")
-    st.code(feedback, language="markdown")
+    st.markdown(format_gemini_feedback(ai_feedback), unsafe_allow_html=True)
 
-    # Comparison Section
     st.markdown("---")
     st.subheader("Traditional vs AI Comparison")
     st.write(comp.get("traditional_vs_ai", ""))
