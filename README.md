@@ -52,6 +52,7 @@ streamlit run app/ui.py
 
 Visit the printed localhost URL and upload a resume (`.pdf` or `.docx`). Optionally paste a job description to see JD matching and AI feedback.
 
+
 ## API Endpoint
 
 The backend exposes a single POST endpoint:
@@ -67,7 +68,5 @@ Body parameters:
 - `jd` – optional job description
 
 It returns a JSON `ScoreResponse` containing traditional score details, JD match data, AI score, and a comparison summary.
-
-## License
 
 
