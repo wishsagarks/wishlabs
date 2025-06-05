@@ -1,17 +1,21 @@
 # app/ai_scoring.py
 
 import os
-import google.generativeai as genai
 from dotenv import load_dotenv
+
+try:
+    import google.generativeai as genai  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    genai = None
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GOOGLE_GEMINI_API_KEY")
 
-if GEMINI_API_KEY is None:
-    raise ValueError("GOOGLE_GEMINI_API_KEY is not set in the .env file!")
-
-# Configure Gemini once per process
-genai.configure(api_key=GEMINI_API_KEY)
+# Configure Gemini once per process if key and library are available
+if GEMINI_API_KEY and genai:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:  # No API key or generative library; disable AI scoring
+    genai = None
 
 # Prompt template for ATS scoring with/without JD
 BASIC_PROMPT = """
@@ -27,6 +31,14 @@ Resume text:
 """
 
 def ai_ats_score(file_bytes, filename, jd, level):
+    """Return an AI-based ATS score and feedback.
+
+    If Gemini configuration is missing, the function returns 0 and a message
+    indicating that AI scoring is disabled. This allows tests to run without
+    external dependencies or API keys.
+    """
+    if genai is None:
+        return 0, "AI scoring disabled"
     # Extract text from resume using same parsers as before
     from app.parsers import extract_text_from_pdf, extract_text_from_docx
 
