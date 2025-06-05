@@ -52,15 +52,6 @@ streamlit run app/ui.py
 
 Visit the printed localhost URL and upload a resume (`.pdf` or `.docx`). Optionally paste a job description to see JD matching and AI feedback.
 
-## Testing
-
-Run the automated unit tests with `pytest`:
-
-```bash
-pytest
-```
-
-The tests cover the scoring logic and the FastAPI endpoints. AI scoring is skipped when the `GOOGLE_GEMINI_API_KEY` environment variable is not set.
 
 ## API Endpoint
 
@@ -78,16 +69,4 @@ Body parameters:
 
 It returns a JSON `ScoreResponse` containing traditional score details, JD match data, AI score, and a comparison summary.
 
-## License
 
-This project is released under the [MIT License](LICENSE).
-
-## Deploying to Vercel
-
-This project can be deployed to [Vercel](https://vercel.com) using the built-in Python runtime. The provided `vercel.json` rewrites all requests to `api/index.py`, which simply exposes the FastAPI `app` for the Vercel serverless environment.
-
-1. Ensure your Vercel account is linked to this repository.
-2. Add any required environment variables in the Vercel dashboard (e.g. `GOOGLE_GEMINI_API_KEY`).
-3. Push your changes. Vercel will automatically build and deploy the API.
-
-You can then access the FastAPI endpoints from the generated Vercel URL.
