@@ -70,4 +70,4 @@ It returns a JSON `ScoreResponse` containing traditional score details, JD match
 
 ## License
 
-This project is released under the [MIT License](LICENSE).
+
