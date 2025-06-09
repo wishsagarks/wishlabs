@@ -199,6 +199,7 @@ else:
     file_bytes = results["file_bytes"]
     filename = results["filename"]
     level = results["level"]
+    metadata = results.get("metadata", None)
 
     # --- Parse fixes and strengths (use your own logic if better!) ---
     fix_lines, strength_lines = [], []
