@@ -181,7 +181,8 @@ if "results" not in st.session_state:
             "name": metadata.get("name", "User"),
             "filename": resume_file.name,
             "file_bytes": resume_file.getvalue(),
-            "level": level
+            "level": level,
+            "metadata": metadata
         }
         st.rerun()
     elif submit_btn and not resume_file:
