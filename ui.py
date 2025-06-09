@@ -106,17 +106,29 @@ def generate_pdf_report(resume_name, level, ats_score, jd_score, ai_score, secti
     return bytes(pdf.output(name=None))
 
 # --- PDF Preview (right side) ---
-def show_resume_pdf(file_bytes, filename):
+def show_resume_file(file_bytes, filename, metadata=None):
     if filename.lower().endswith(".pdf"):
-        b64 = base64.b64encode(file_bytes).decode()
-        st.markdown(
-            f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="700px" '
-            f'style="border-radius:14px; border:2px solid #eee;background:transparent"></iframe>',
-            unsafe_allow_html=True,
+        try:
+            b64 = base64.b64encode(file_bytes).decode()
+            st.markdown(
+                f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="700px" '
+                f'style="border-radius:14px; border:2px solid #eee;background:transparent"></iframe>',
+                unsafe_allow_html=True,
+            )
+        except Exception as e:
+            st.warning(f"PDF preview failed: {e}")
+            st.download_button(
+                "Download your uploaded file", file_bytes, filename=filename
+            )
+    elif filename.lower().endswith(".docx"):
+        st.info("Preview for DOCX files is not supported. See the parsed text below:")
+        if metadata and "raw_text" in metadata:
+            st.text_area("Extracted Resume Text", metadata["raw_text"], height=400)
+        st.download_button(
+            "Download your uploaded file", file_bytes, filename=filename
         )
     else:
-        st.markdown("Preview available for PDF files only.", unsafe_allow_html=True)
-
+        st.error("Unsupported file type for preview.")
 # --- Sidebar ---
 with st.sidebar:
     st.markdown("### 🟩 WishLabs ATS Checker")
@@ -301,7 +313,7 @@ else:
     with right_col:
         st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
         st.markdown("### Resume Preview")
-        show_resume_pdf(file_bytes, filename)
+        show_resume_file(file_bytes, filename, metadata=metadata)
 
 # Custom CSS
 st.markdown("""
